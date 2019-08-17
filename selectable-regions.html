@@ -1,0 +1,221 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no"/>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="https://d3js.org/topojson.v1.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"
+   integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ=="
+   crossorigin=""/>
+ <!-- Make sure you put this AFTER Leaflet's CSS -->
+ <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"
+   integrity="sha512-/Nsx9X4HebavoBvEBuyp3I7od5tA0UzAxs+j83KgC8PU0kgB4XiK4Lfe4y4cgBtaRJQEIFCW+oC506aPT2L1zw=="
+   crossorigin=""></script>
+<script src="https://stamen-maps.a.ssl.fastly.net/js/tile.stamen.js"></script>
+<style type="text/css">
+html, body {
+    padding: 0px;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+    font-family: Arial, Helvetica, sans-serif;
+}
+    
+#text-area {
+  height: 15%;
+  margin: 0px 10px;
+}
+
+#map {
+  height: 85%;
+}
+
+.region-path, .cook-path {
+  opacity: .75;
+  stroke: #000;
+  stroke-width: 0.25px;
+}
+
+.region-path:hover, .cook-path:hover {
+  stroke-width: 1.5px;
+}
+
+.ward1path {
+  opacity: 1;
+  stroke-width: 0.5px;
+}
+
+.leaflet-overlay-pane svg path{
+    pointer-events: auto;
+}
+</style>
+</head>
+<body>
+<div id="text-area" class="selection">
+<h2>Choropleth with selectable regions</h2>
+  <p>
+    <b>Summarize data by: </b> <select class="dropdown" id="region-select"></select>
+  <p>
+  <p id="caption"></p>
+</div>
+<div id="map"></div>
+<script type="text/javascript">
+// object of the geospatial region files and the properties to aggregate on
+var regions = {
+	"U.S. Congressional District": {"file": "ushouse.topojson", "objects": "districts", "property": "CD115FP", "aggregation": "us_congress"},
+	"State Senate District": {"file": "ilsenate.topojson", "objects": "districts", "property": "NAME", "aggregation": "il_senate"},
+	"State Assembly District": {"file": "ilhouse.topojson", "objects": "districts", "property": "NAME", "aggregation": "il_house"},
+  "County Commissioner District": {"file": "cookcommissioner.topojson", "objects": "commissioners", "property": "district_n", "aggregation": "cook_commissioner"},
+  "Community Area": {"file": "communities.topojson", "objects": "communities", "property": "community", "aggregation": "community_area"},
+  "Chicago Ward": {"file": "wards.topojson", "objects": "wards", "property": "ward", "aggregation": "ward"},
+  "Precinct": {"file": "cookprecincts.topojson", "objects": "precincts", "property": "full_text", "aggregation": "precinct"},
+}
+
+// populate dropdown list of regions
+var regionSelect = d3.select("#region-select");
+
+regionSelect.selectAll("option")
+    .data(Object.keys(regions))
+  .enter().append("option")
+    .attr("value", d => d)
+    .text(d => d);
+
+var defaultBoundary = "Precinct";
+regionSelect.property("value", defaultBoundary);
+
+// initialize map
+var map = new L.Map("map", {
+    center: [41.87, -87.62],
+    zoom: 11
+});
+
+map.addLayer(new L.StamenTileLayer("toner"), {
+    attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'
+});
+
+// add svg overlay to map
+L.svg().addTo(map); // render all paths with SVG
+
+var svg = d3.select("#map").select("svg");
+
+// define color scale
+var color = d3.scaleSequential(d3.interpolateReds);
+
+// load data to aggregate
+d3.csv("data/random_points.csv", function(points){
+	regionSelect.on("change", function(){
+		update(points);
+	});
+
+	update(points)
+})
+
+var transform = d3.geoTransform({point: projectPoint}),
+path = d3.geoPath().projection(transform);
+
+map.on("moveend", reset);
+
+// Reposition the SVG to cover the features.
+function reset() {
+  d3.selectAll(".reposition").attr("d", path);
+}
+
+function update(points) {
+	var selectedRegion = d3.select("#region-select").node().value,
+			file_name = regions[selectedRegion].file;
+
+	d3.selectAll(".reposition").remove();
+
+	// load geospatial data
+	if (selectedRegion == "Precinct") {
+		d3.queue()
+      .defer(d3.json, "data/geospatial/" + file_name)
+      .defer(d3.json, "data/geospatial/wards.topojson")
+      .await(drawPrecinctMap);
+	} else {
+		d3.queue()
+			.defer(d3.json, file_name)
+			.await(draw);
+	}
+
+	function draw(error, region) {
+		drawRegions(error, region);
+		reset();
+	}
+
+	// if precincts are selected, draws ward and city regions
+	function drawPrecinctMap(error, region, ward) {
+		drawRegions(error, region);
+		drawBorders(error, ward);
+		reset();
+	}
+	
+	function drawRegions(error, region) {
+	  if (error) throw error;
+
+	  var selectedRegion = d3.select("#region-select").node().value,
+				objects_name = regions[selectedRegion].objects,
+				property_name = regions[selectedRegion].property,
+				aggregation_key = regions[selectedRegion].aggregation;
+
+	  // aggregate data by selected geospatial regions
+	  var pointsByBoundary = d3.nest()
+	    .key(d => d[aggregation_key])
+	    .rollup(v => v.length)
+	    .object(points);
+
+	  // set color range based on max aggregated value
+	  delete pointsByBoundary[""]
+		color.domain([0, d3.max(d3.values(pointsByBoundary))]);
+
+		// render choropleth
+	  var region = svg.selectAll("region-path")
+	      .data(topojson.feature(region, region.objects[objects_name]).features)
+	    .enter().append("path")
+	      .attr("class", d => "region-path reposition")
+	      .attr("id", d => d.properties[property_name])
+	      .attr("fill", d => pointsByBoundary[d.properties[property_name]] === undefined ? '#ccc' : color(pointsByBoundary[d.properties[property_name]]))
+	      .on("mouseover", function(d) {
+	        d3.select("#caption").text("There are " + (pointsByBoundary[d.properties[property_name]] === undefined ? 0 : pointsByBoundary[d.properties[property_name]]) + " points in " + selectedRegion + " " + d.properties[property_name]);
+	        d3.select(this)
+	            .classed("selected", true)
+	      })
+	      .on("mouseout", function(d) {
+	        d3.selectAll(".selected")
+	            .classed("selected", null);
+	      });
+	}
+
+	// draws city and ward regions
+	function drawBorders(error, wards) {
+	  if (error) throw error;
+
+    var city = svg.append("path")
+        .datum(topojson.merge(wards, wards.objects.wards.geometries))
+        .attr("class", "city-border reposition")
+        .attr("fill", "none")
+        .attr("stroke", "black")
+        .attr("stroke-width", 2);
+		  
+    var wardsBorders = svg.append("path")
+    		.datum(topojson.mesh(wards, wards.objects.wards, (a, b) => a !== b))
+        .attr("class", "wards-borders reposition")
+        .attr("fill", "none")
+        .attr("stroke", "black")
+        .attr("stroke-width", 2);
+	}
+}
+
+String.prototype.toProperCase = function () {
+  return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+};
+
+function projectPoint(x, y) {
+  var point = map.latLngToLayerPoint(new L.LatLng(y, x));
+  this.stream.point(point.x, point.y);
+}
+</script>
+</body>
+</html>

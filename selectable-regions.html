@@ -136,7 +136,7 @@ function update(points) {
       .await(drawPrecinctMap);
 	} else {
 		d3.queue()
-			.defer(d3.json, file_name)
+			.defer(d3.json, "data/geospatial/" + file_name)
 			.await(draw);
 	}
 

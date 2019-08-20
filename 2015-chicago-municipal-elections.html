@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="initial-scale=1.0, user-scalable=no"/>
-<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="https://d3js.org/d3.v5.min.js"></script>
 <script src="https://d3js.org/topojson.v1.min.js"></script>
 <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"
@@ -15,24 +15,47 @@
 <script src="https://stamen-maps.a.ssl.fastly.net/js/tile.stamen.js"></script>
 <style type="text/css">
 html, body {
-  padding: 0px;
-  margin: 0px;
-  width: 100%;
-  height: 100%;
+  margin: 0 10%;
+  padding: 0px 0px;
+  width: 80%;
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.selection span {
+  display: inline-block;
+}
     
-#text-area {
-  height: 25%;
-  margin: 0px 10px;
+#results {
+  font-size: 16px;
+  margin: 20px 0px;
 }
 
-#text-area p {
-  font-size: 16px;
+td {
+  border-radius: 3px;
+}
+
+td.winner {
+  border: 2px solid black;
+}
+
+td.name-cell, th.name-cell {
+  text-align: left;
+  padding: 5px 50px 5px 5px;
+}
+
+td.num-cell, th.num-cell {
+  text-align: right;
+  padding-left: 10px;
+}
+
+#total-results {
+  font-size: 10px;
+  margin: 2px;
 }
 
 #map {
-  height: 75%;
+  height: 680px;
+  width: 100%;
 }
 
 .precinct-path {
@@ -51,7 +74,7 @@ html, body {
 
 .caption {
   padding: 6px 8px;
-  font-size: 14px;
+  font-size: 12px;
   background: #ddd;
   opacity: 1;
   box-shadow: 0 0 15px rgba(0,0,0,0.2);
@@ -61,22 +84,50 @@ html, body {
   margin: 0 0 5px;
   color: #777;
 }
+
+.caption td.name-cell, th.name-cell {
+  padding: 2px 15px 2px 2px;
+}
+
+@media screen and (max-width: 1200px) {
+  html, body {
+    margin: 0 5%;
+    width: 90%;
+  }
+}
+
+@media screen and (max-width: 720px) {
+  html, body {
+    margin: 0 0;
+    width: 100%;
+  }
+}
 </style>
 </head>
 <body>
-<div id="text-area">
-  <h1>2015 Chicago Municipal Election Results</h1>
-  <div class="selection">
+  <div id="header">
+    <h1>2015 Chicago Municipal Election Results</h1>
+    <div class="selection">
       <p>
         <span title="Select a race"><b>Race</b> <select class="dropdown" id="election-select"></select></span>&nbsp;&nbsp;
         <span title="See election results by candidate"><b>Candidate</b> <select class="dropdown" id="candidate-select"><option value="All">All Candidates</option></select></span>
-      <p>
+      </p>
+    </div>
   </div>
-  <div id="results"><p id="summary-p"></p><p id="results-p"></p></div>
 
-</div>
-
-<div id="map"></div>
+    <div id="results">
+      <table id="results-table">
+        <thead>
+          <tr><th class="name-cell">Candidates</th><th class="num-cell">Votes</th><th class="num-cell">Pct</th></tr>
+        </thead>
+        <tbody>
+        </tbody>
+      </table>
+      <p id="total-results">
+      </p>
+    </div>
+    <div id="map">
+    </div>
 <script type="text/javascript">
 var candidates,
     results;
@@ -171,8 +222,8 @@ caption.onAdd = function (map) {
 };
 
 caption.update = function (d) {
-    this._div.innerHTML = (d ? '<h4>Precinct ' + d.properties.full_text + ' Results</h4><table><thead><tr><th>Candidate</th><th>Votes</th><th>Pct</th></tr></thead>' + results.get(d.properties.full_text).map((d,i) => '<tr><td><font color="' + winnerColor(d.race) + '">' + d.race + "</font></td><td>" + d.votes + "</td><td>" + d.percent + "%</td></tr>").join("") + "</table>"
-        : 'Hover over a Precinct');
+    this._div.innerHTML = (d ? "<h4>Precinct " + d.properties.full_text + " Results</h4><table ><thead><tr><th class='name-cell'>Candidates</th><th class='num-cell'>Votes</th><th class='num-cell'>Pct</th></tr></thead>" + results.get(d.properties.full_text).map((d,i) => "<tr><td class='name-cell' style='background-color:" + d3.color(winnerColor(d.race)).copy({"opacity": 0.75}).toString() + "'>" + d.race + "</td><td class='num-cell'>" + d.votes + "</td><td class='num-cell'>" + d.percent + "</td><td>" + (!i ? "%" : "") + "</td></tr>").join("") + "</table>"
+        : "Hover over a Precinct");
 };
 
 caption.addTo(map);
@@ -188,15 +239,11 @@ var winnerColor = d3.scaleOrdinal(d3.schemeSet1),
     .domain([15, 85]);
 
 // load geospatial boundaries
-d3.queue()
-    .defer(d3.json, "data/geospatial/precincts.topojson")
-    .defer(d3.json, "data/geospatial/wards.topojson")
-    .await(ready);
-
-// add event handlers for when new data is selected
-function ready(error, precincts, wards) {
-  if (error) throw error;
-
+Promise.all([
+  d3.json("data/geospatial/precincts.topojson"),
+  d3.json("data/geospatial/wards.topojson")
+])
+.then(([precincts, wards]) => {
   electionSelect.on("change", function(d) {
       draw(precincts, wards);
     });
@@ -204,7 +251,7 @@ function ready(error, precincts, wards) {
   candidateSelect.on("change", updateColors);
 
   draw(precincts, wards);
-}
+});
 
 // draw svg layer + add caption
 function draw(precincts, wards) {
@@ -213,6 +260,8 @@ function draw(precincts, wards) {
   results = d3.map();
   d3.selectAll(".precinct-path").remove();
   d3.selectAll(".candidate-option").remove();
+  d3.selectAll("#results-table tbody tr").remove();
+  d3.select("#total-results").html("");
 
   var electionOptions = d3.select("#election-select").node(),
       selectedElection = electionOptions.options[electionOptions.selectedIndex],
@@ -220,7 +269,7 @@ function draw(precincts, wards) {
       filePath = "data/election_results/" + selectedElection.getAttribute("file");
 
   // load election data
-  d3.tsv(filePath, parseResults, function(error, electionResults) {
+  d3.tsv(filePath, parseResults).then(electionResults => {
     var transform = d3.geoTransform({point: projectPoint}),
         path = d3.geoPath().projection(transform);
 
@@ -279,8 +328,13 @@ function draw(precincts, wards) {
 
     var totalVotes = d3.sum(d3.values(summary));
 
-    d3.select("#summary-p")
-      .html("<b>Overall Results:</b><br />" + (d3.entries(summary).sort((a, b) => d3.descending(a.value, b.value)).map(d => "<font color=" + winnerColor(d.key) + ">" + d.key + "</font>: " + d.value + " (" + Math.round(d.value / totalVotes * 10000.0) / 100 + "%)")).join("<br />"));
+    d3.select("#results-table tbody").selectAll("tr")
+        .data(d3.entries(summary).sort((a, b) => d3.descending(a.value, b.value)))
+      .enter().append("tr")
+        .html((d, i) => "<td class='name-cell" + (!i ? " winner'" : "'") + " style='background-color:" + d3.color(winnerColor(d.key)).copy({"opacity": 0.75}).toString() + "'>" + d.key + "<td class='num-cell'>" + d.value.toLocaleString() + "</td><td class='num-cell'>" + (d.value / totalVotes * 100).toFixed(2) + "</td><td>" + (!i ? "%" : "") + "</td>")
+
+    d3.select("#total-results")
+        .html(totalVotes.toLocaleString() + " votes<br />" + filteredPrecincts.length.toLocaleString() + " of " + filteredPrecincts.length.toLocaleString() + " precincts reporting")
 
     map.on("moveend", reset);
     reset();
@@ -312,10 +366,11 @@ function updateColors() {
     var c = d3.scaleLinear().domain([0,4])
         .interpolate(d3.interpolateHsl)
         .range([
-          d3.hsl(winnerColor(candidate)).brighter(1.5),
-          d3.hsl(winnerColor(candidate)).darker(3)
+          d3.hsl(winnerColor(candidate)).brighter(1.25),
+          d3.hsl(winnerColor(candidate)).darker(2.5)
         ]);
-
+        console.log(candidate)
+    console.log(winnerColor(candidate))
     pctColor.range([...Array(5).keys()].map(x => c(x)));
 
     d3.selectAll(".precinct-path")

@@ -1,6 +1,7 @@
 # Interactive Maps
-I've made many maps over the past couple of years, mostly with D3 and Python. I'll use this repository to start sharing them.
+This repository is for sharing maps I have created, mostly using D3 and Python.
 
 ## Maps
-* [2015 Chicago Municipal Elections](https://spencerchan.github.io/maps/2015-chicago-municipal-elections.html) (D3/Leaflet)
+* [Chicago Municipal Elections](https://spencerchan.github.io/maps/chicago-municipal-elections.html) (D3/Leaflet)
+  * Data scraped from Chicago Board of Election's website using this [Python script](https://github.com/spencerchan/chicago-elections-scraper).
 * [Choropleth with selectable regions](https://spencerchan.github.io/maps/selectable-regions.html) (D3/Leaflet)

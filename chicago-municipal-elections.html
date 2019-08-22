@@ -54,7 +54,7 @@ td.num-cell, th.num-cell {
 }
 
 #map {
-  height: 500px;
+  height: 720px;
   width: 100%;
 }
 
@@ -96,6 +96,12 @@ td.num-cell, th.num-cell {
 
 .axis path, .axis line {
   display: none;
+}
+
+footer {
+  margin-top: 30px;
+  font-size: 10px;
+  text-align: center;
 }
 
 @media screen and (max-width: 1200px) {
@@ -207,7 +213,11 @@ yearSelect.selectAll("option")
     .data([2015, 2019])
   .enter().append("option")
     .attr("value", d => d)
-    .text(d => d)
+    .text(d => d);
+
+yearSelect.on("change", () => {
+    electionSelect.node().selectedIndex = -1;
+});
 
 yearSelect.property("value", 2015);
 
@@ -274,11 +284,14 @@ Promise.all([
   d3.json("data/geospatial/wards.topojson")
 ])
 .then(([precincts, wards]) => {
-  electionSelect.on("change", function(d) {
-      draw(precincts, wards);
-    });
+  electionSelect.on("change", () => {
+    draw(precincts, wards);
+  });
 
-  candidateSelect.on("change", updateColors);
+  candidateSelect.on("change", () => {
+    updateColors();
+    updateLegend();
+  });
 
   draw(precincts, wards);
 });
@@ -295,9 +308,10 @@ function draw(precincts, wards) {
   d3.select("div.legend").remove();
 
   var year = yearSelect.node().value,
-      election = electionSelect.node().value,
-      electionDistrict = electionSelect.node().options[electionSelect.node().selectedIndex].getAttribute("district"), 
-      filePath = "data/election_results/" + year + "/" + electionSelect.node().options[electionSelect.node().selectedIndex].getAttribute("file");
+      electionDD = electionSelect.node(),
+      election = electionDD.value,
+      electionDistrict = electionDD.options[electionDD.selectedIndex].getAttribute("district"), 
+      filePath = "data/election_results/" + year + "/Municipal General " + electionDD.options[electionDD.selectedIndex].getAttribute("file");
 
   // load election data
   d3.tsv(filePath, parseResults).then(electionResults => {
@@ -406,39 +420,47 @@ function updateColors() {
         ]);
     pctColor.range([...Array(5).keys()].map(x => c(x)));
 
-    updateLegend();
-
     d3.selectAll(".precinct-path")
         .attr("fill", d => pctColor(results.get(d.properties.full_text).find(x => x.race == candidate).percent))
   }
 }
 
+// updates legend color scale when new candidate chosen
 function updateLegend() {
   legend.addTo(map);
 
-  var legendSvg = d3.select(".svg-legend");
+  var legendSvg = d3.select(".svg-legend"),
+      candidate = d3.select("#candidate-select").node().value;
+
+  legendSvg.append("text")
+      .attr("x", 80)
+      .attr("y", 15)
+      .attr("text-anchor", "middle")
+      .style("font-size", "10px")
+      .style("font-weight", "bold")
+      .text(candidate + "'s vote %");
+
+  legendSvg.append("g").selectAll(".rect")
+      .data([0].concat(pctColor.quantiles()))
+    .enter().append("rect")
+      .attr("x", (_, i) => 15 + i * 25)
+      .attr("y", 20)
+      .attr("height", 12)
+      .attr("width", 25)
+      .attr("fill", d => pctColor(d));
 
   var legendScale = d3.scaleLinear()
       .domain([0,60])
       .range([0, 26 * 4]);
 
-  legendSvg.append("g").selectAll(".rect")
-      .data([0].concat(pctColor.quantiles()))
-    .enter().append("rect")
-      .attr("x", (_, i) => 15 + i * 26)
-      .attr("y", 15)
-      .attr("height", 12)
-      .attr("width", 25)
-      .attr("fill", d => pctColor(d));
-
   var legendAxis = d3.axisBottom(legendScale)
       .tickSize(0)
       .tickValues(pctColor.quantiles())
-      .tickFormat((d, i) => i == pctColor.quantiles().length - 1 ? d + "%" : d);
+      .tickFormat(d => d);
 
   legendSvg.append("g")
       .attr("class", "axis")
-      .attr("transform", "translate(15,27)")
+      .attr("transform", "translate(15,32)")
       .call(legendAxis);
 }
 
@@ -454,5 +476,8 @@ function parseResults(d, i) {
   results.set(d.Precinct, candidates.map(c => { return {race: c, votes: +d["votes|"+c], percent: +d["pct|"+c]}; }).sort((a,b) => b.votes - a.votes));
 }
 </script>
+<footer>
+  <p>Source: <a href="https://github.com/spencerchan/maps">https://github.com/spencerchan/maps</a> | Data: <a href="https://chicagoelections.gov/en/election-results.html">Chicago Board of Election Commissioners</a></p> 
+</footer>
 </body>
 </html>

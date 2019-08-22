@@ -121,12 +121,12 @@ footer {
 </head>
 <body>
   <div id="header">
-    <h1>2015 Chicago Municipal Election Results</h1>
+    <h1>Chicago Municipal Election Results</h1>
     <div class="selection">
       <p>
-        <span title="Choose the election year"><b>Year</b> <select class="dropdown" id="year-select"></select></span>&nbsp;&nbsp;
-        <span title="Select a race"><b>Race</b> <select class="dropdown" id="election-select"></select></span>&nbsp;&nbsp;
-        <span title="See election results by candidate"><b>Candidate</b> <select class="dropdown" id="candidate-select"><option value="All">All Candidates</option></select></span>
+        <span title="Choose an election"><b>Election</b> <select class="dropdown" id="election-select"></select></span>&nbsp;&nbsp;
+        <span title="Select a race"><b>Race</b> <select class="dropdown" id="race-select"></select></span>&nbsp;&nbsp;
+        <span title="Show election results by candidate"><b>Candidate</b> <select class="dropdown" id="candidate-select"><option value="All">All Candidates</option></select></span>
       </p>
     </div>
   </div>
@@ -148,88 +148,92 @@ footer {
 var candidates,
     results;
     
-// define dropdown list and their options
+// define dropdown lists and their options
 var elections = [
-  {district: "city", race: "Mayor"},
-  {district: "city", race: "City Clerk"},
-  {district: "city", race: "City Treasurer"},
-  {district: 1, race: "Alderman 1st Ward"},
-  {district: 2, race: "Alderman 2nd Ward"},
-  {district: 3, race: "Alderman 3rd Ward"},
-  {district: 4, race: "Alderman 4th Ward"},
-  {district: 5, race: "Alderman 5th Ward"},
-  {district: 6, race: "Alderman 6th Ward"},
-  {district: 7, race: "Alderman 7th Ward"},
-  {district: 8, race: "Alderman 8th Ward"},
-  {district: 9, race: "Alderman 9th Ward"},
-  {district: 10, race: "Alderman 10th Ward"},
-  {district: 11, race: "Alderman 11th Ward"},
-  {district: 12, race: "Alderman 12th Ward"},
-  {district: 13, race: "Alderman 13th Ward"},
-  {district: 14, race: "Alderman 14th Ward"},
-  {district: 15, race: "Alderman 15th Ward"},
-  {district: 16, race: "Alderman 16th Ward"},
-  {district: 17, race: "Alderman 17th Ward"},
-  {district: 18, race: "Alderman 18th Ward"},
-  {district: 19, race: "Alderman 19th Ward"},
-  {district: 20, race: "Alderman 20th Ward"},
-  {district: 21, race: "Alderman 21st Ward"},
-  {district: 22, race: "Alderman 22nd Ward"},
-  {district: 23, race: "Alderman 23rd Ward"},
-  {district: 24, race: "Alderman 24th Ward"},
-  {district: 25, race: "Alderman 25th Ward"},
-  {district: 26, race: "Alderman 26th Ward"},
-  {district: 27, race: "Alderman 27th Ward"},
-  {district: 28, race: "Alderman 28th Ward"},
-  {district: 29, race: "Alderman 29th Ward"},
-  {district: 30, race: "Alderman 30th Ward"},
-  {district: 31, race: "Alderman 31st Ward"},
-  {district: 32, race: "Alderman 32nd Ward"},
-  {district: 33, race: "Alderman 33rd Ward"},
-  {district: 34, race: "Alderman 34th Ward"},
-  {district: 35, race: "Alderman 35th Ward"},
-  {district: 36, race: "Alderman 36th Ward"},
-  {district: 37, race: "Alderman 37th Ward"},
-  {district: 38, race: "Alderman 38th Ward"},
-  {district: 39, race: "Alderman 39th Ward"},
-  {district: 40, race: "Alderman 40th Ward"},
-  {district: 41, race: "Alderman 41st Ward"},
-  {district: 42, race: "Alderman 42nd Ward"},
-  {district: 43, race: "Alderman 43rd Ward"},
-  {district: 44, race: "Alderman 44th Ward"},
-  {district: 45, race: "Alderman 45th Ward"},
-  {district: 46, race: "Alderman 46th Ward"},
-  {district: 47, race: "Alderman 47th Ward"},
-  {district: 48, race: "Alderman 48th Ward"},
-  {district: 49, race: "Alderman 49th Ward"},
-  {district: 50, race: "Alderman 50th Ward"}
+  "2015 Municipal General",
+  "2015 Municipal Runoffs",
+  "2019 Municipal General",
+  "2019 Municipal Runoffs"
 ];
 
-var yearSelect = d3.select("#year-select"),
-    electionSelect = d3.select("#election-select"),
+var races = [
+  {district: "city", race: "Mayor", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": true},
+  {district: "city", race: "City Clerk", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: "city", race: "City Treasurer", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": true},
+  {district: 1, race: "Alderman 1st Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 2, race: "Alderman 2nd Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": false},
+  {district: 3, race: "Alderman 3rd Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 4, race: "Alderman 4th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 5, race: "Alderman 5th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": true},
+  {district: 6, race: "Alderman 6th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": true},
+  {district: 7, race: "Alderman 7th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": false},
+  {district: 8, race: "Alderman 8th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 9, race: "Alderman 9th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 10, race: "Alderman 10th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": false},
+  {district: 11, race: "Alderman 11th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": false},
+  {district: 12, race: "Alderman 12th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 13, race: "Alderman 13th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 14, race: "Alderman 14th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 15, race: "Alderman 15th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": true},
+  {district: 16, race: "Alderman 16th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": true},
+  {district: 17, race: "Alderman 17th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 18, race: "Alderman 18th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": false},
+  {district: 19, race: "Alderman 19th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 20, race: "Alderman 20th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": true},
+  {district: 21, race: "Alderman 21st Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": true},
+  {district: 22, race: "Alderman 22nd Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 23, race: "Alderman 23rd Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 24, race: "Alderman 24th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": false},
+  {district: 25, race: "Alderman 25th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": true},
+  {district: 26, race: "Alderman 26th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 27, race: "Alderman 27th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 28, race: "Alderman 28th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 29, race: "Alderman 29th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": false},
+  {district: 30, race: "Alderman 30th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": true},
+  {district: 31, race: "Alderman 31st Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": true},
+  {district: 32, race: "Alderman 32nd Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 33, race: "Alderman 33rd Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": true},
+  {district: 34, race: "Alderman 34th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 35, race: "Alderman 35th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 36, race: "Alderman 36th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": false},
+  {district: 37, race: "Alderman 37th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": false},
+  {district: 38, race: "Alderman 38th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 39, race: "Alderman 39th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": true},
+  {district: 40, race: "Alderman 40th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": true},
+  {district: 41, race: "Alderman 41st Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": false},
+  {district: 42, race: "Alderman 42nd Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 43, race: "Alderman 43rd Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": true},
+  {district: 44, race: "Alderman 44th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 45, race: "Alderman 45th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": false},
+  {district: 46, race: "Alderman 46th Ward", "2015 Municipal Runoffs": true, "2019 Municipal Runoffs": true},
+  {district: 47, race: "Alderman 47th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": true},
+  {district: 48, race: "Alderman 48th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 49, race: "Alderman 49th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false},
+  {district: 50, race: "Alderman 50th Ward", "2015 Municipal Runoffs": false, "2019 Municipal Runoffs": false}
+];
+
+var electionSelect = d3.select("#election-select"),
+    raceSelect = d3.select("#race-select"),
     candidateSelect = d3.select("#candidate-select"); // populated after election chosen
 
-yearSelect.selectAll("option")
-    .data([2015, 2019])
+electionSelect.selectAll("option.election-option")
+    .data(elections)
   .enter().append("option")
+    .attr("class", "election-option")
+    .attr("year", d => d.split(" ")[0])
     .attr("value", d => d)
     .text(d => d);
 
-yearSelect.on("change", () => {
-    electionSelect.node().selectedIndex = -1;
+electionSelect.on("change", () => {
+  updateRaceSelect();
+  raceSelect.node().selectedIndex = -1;
 });
 
-yearSelect.property("value", 2015);
+electionSelect.property("value", "2015 Municipal General");
 
-electionSelect.selectAll("option")
-    .data(elections)
-  .enter().append("option")
-    .attr("district", d => d.district)
-    .attr("file", d => d.race + ".tsv")
-    .attr("value", d => d.race)
-    .text(d => d.race)
+updateRaceSelect();
 
-electionSelect.property("value", "Alderman 33rd Ward");
+raceSelect.property("value", "Alderman 33rd Ward");
 
 // initialize map
 var map = new L.Map("map", {
@@ -284,7 +288,7 @@ Promise.all([
   d3.json("data/geospatial/wards.topojson")
 ])
 .then(([precincts, wards]) => {
-  electionSelect.on("change", () => {
+  raceSelect.on("change", () => {
     draw(precincts, wards);
   });
 
@@ -307,11 +311,14 @@ function draw(precincts, wards) {
   d3.select("#total-results").html("");
   d3.select("div.legend").remove();
 
-  var year = yearSelect.node().value,
-      electionDD = electionSelect.node(),
-      election = electionDD.value,
-      electionDistrict = electionDD.options[electionDD.selectedIndex].getAttribute("district"), 
-      filePath = "data/election_results/" + year + "/Municipal General " + electionDD.options[electionDD.selectedIndex].getAttribute("file");
+  // build election results file name
+  var electionDD = electionSelect.node(),
+      election = electionDD.value.split(" ").slice(1).join(" "),
+      electionYear = electionDD.options[electionDD.selectedIndex].getAttribute("year"),
+      raceDD = raceSelect.node(),
+      race = raceDD.value,
+      raceDistrict = raceDD.options[raceDD.selectedIndex].getAttribute("district"), 
+      filePath = "data/election_results/" + electionYear + "/" + election + " " + raceDD.options[raceDD.selectedIndex].getAttribute("file");
 
   // load election data
   d3.tsv(filePath, parseResults).then(electionResults => {
@@ -320,11 +327,11 @@ function draw(precincts, wards) {
 
     // if city-wide election chosen, render all precincts
     // otherwise, only renders precincts for relevant ward
-    if (electionDistrict == "city") {
+    if (raceDistrict == "city") {
       var filteredPrecincts = topojson.feature(precincts, precincts.objects.precincts).features;
     } else {
       var precinctFeatures = topojson.feature(precincts, precincts.objects.precincts),
-          filteredPrecincts = precinctFeatures.features.filter(d => d.properties.ward == electionDistrict);
+          filteredPrecincts = precinctFeatures.features.filter(d => d.properties.ward == raceDistrict);
     }
 
     // calculate overall results for chosen election
@@ -349,13 +356,15 @@ function draw(precincts, wards) {
       .attr("value", d => d)
       .text(d => d);
 
+    (candidates2.length < 2) ? candidateSelect.node().disabled =true : candidateSelect.node().disabled = false;
+
     var totalVotes = d3.sum(d3.values(summary));
 
     // update results table + caption
     d3.select("#results-table tbody").selectAll("tr")
         .data(sortedSummary)
       .enter().append("tr")
-        .html((d, i) => "<td class='name-cell" + (!i ? " winner'" : "'") + " style='background-color:" + winnerColor(d.key) + "'>" + d.key + "<td class='num-cell'>" + d.value.toLocaleString() + "</td><td class='num-cell'>" + (d.value / totalVotes * 100).toFixed(2) + "</td><td>" + (!i ? "%" : "") + "</td>")
+        .html((d, i) => "<td class='name-cell" + (!i || (i == 1 && sortedSummary[0].value / totalVotes < 0.5) ? " winner'" : "'") + " style='background-color:" + winnerColor(d.key) + "'>" + d.key + "<td class='num-cell'>" + d.value.toLocaleString() + "</td><td class='num-cell'>" + (d.value / totalVotes * 100).toFixed(2) + "</td><td>" + (!i ? "%" : "") + "</td>")
 
     d3.select("#total-results")
         .html(totalVotes.toLocaleString() + " votes<br />" + filteredPrecincts.length.toLocaleString() + " of " + filteredPrecincts.length.toLocaleString() + " precincts reporting")
@@ -383,7 +392,7 @@ function draw(precincts, wards) {
     // center map on feature
     var centroid = d3.geoCentroid({type: "FeatureCollection", "features": filteredPrecincts});
 
-    map.flyTo(new L.LatLng(centroid[1], centroid[0]), electionDistrict == "city" ? 11 : 12);
+    map.flyTo(new L.LatLng(centroid[1], centroid[0]), raceDistrict == "city" ? 11 : 12);
 
     map.on("moveend", reset);
     reset();
@@ -462,6 +471,22 @@ function updateLegend() {
       .attr("class", "axis")
       .attr("transform", "translate(15,32)")
       .call(legendAxis);
+}
+
+// updates race dropdown options when election changes
+function updateRaceSelect() {
+  raceSelect.selectAll("option.race-option").remove();
+
+  var election = electionSelect.node().value;
+
+  raceSelect.selectAll("option.race-option")
+    .data((election == "2015 Municipal Runoffs" || election == "2019 Municipal Runoffs") ? races.filter(d => d[election]) : races)
+  .enter().append("option")
+    .attr("class", "race-option")
+    .attr("district", d => d.district)
+    .attr("file", d => d.race + ".tsv")
+    .attr("value", d => d.race)
+    .text(d => d.race);
 }
 
 // parse election result data file

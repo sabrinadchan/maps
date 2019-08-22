@@ -54,12 +54,12 @@ td.num-cell, th.num-cell {
 }
 
 #map {
-  height: 680px;
+  height: 500px;
   width: 100%;
 }
 
 .precinct-path {
-  fill-opacity: 0.75;
+  fill-opacity: 0.85;
   stroke: #000;
   stroke-width: 0.25px;
 }
@@ -89,6 +89,15 @@ td.num-cell, th.num-cell {
   padding: 2px 15px 2px 2px;
 }
 
+.legend {
+  width: 160px;
+  height: 50px;
+}
+
+.axis path, .axis line {
+  display: none;
+}
+
 @media screen and (max-width: 1200px) {
   html, body {
     margin: 0 5%;
@@ -109,25 +118,26 @@ td.num-cell, th.num-cell {
     <h1>2015 Chicago Municipal Election Results</h1>
     <div class="selection">
       <p>
+        <span title="Choose the election year"><b>Year</b> <select class="dropdown" id="year-select"></select></span>&nbsp;&nbsp;
         <span title="Select a race"><b>Race</b> <select class="dropdown" id="election-select"></select></span>&nbsp;&nbsp;
         <span title="See election results by candidate"><b>Candidate</b> <select class="dropdown" id="candidate-select"><option value="All">All Candidates</option></select></span>
       </p>
     </div>
   </div>
 
-    <div id="results">
-      <table id="results-table">
-        <thead>
-          <tr><th class="name-cell">Candidates</th><th class="num-cell">Votes</th><th class="num-cell">Pct</th></tr>
-        </thead>
-        <tbody>
-        </tbody>
-      </table>
-      <p id="total-results">
-      </p>
-    </div>
-    <div id="map">
-    </div>
+  <div id="results">
+    <table id="results-table">
+      <thead>
+        <tr><th class="name-cell">Candidates</th><th class="num-cell">Votes</th><th class="num-cell">Pct</th></tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+    <p id="total-results">
+    </p>
+  </div>
+  <div id="map">
+  </div>
 <script type="text/javascript">
 var candidates,
     results;
@@ -189,8 +199,17 @@ var elections = [
   {district: 50, race: "Alderman 50th Ward"}
 ];
 
-var candidateSelect = d3.select("#candidate-select"), // populated after election chosen
-    electionSelect = d3.select("#election-select");
+var yearSelect = d3.select("#year-select"),
+    electionSelect = d3.select("#election-select"),
+    candidateSelect = d3.select("#candidate-select"); // populated after election chosen
+
+yearSelect.selectAll("option")
+    .data([2015, 2019])
+  .enter().append("option")
+    .attr("value", d => d)
+    .text(d => d)
+
+yearSelect.property("value", 2015);
 
 electionSelect.selectAll("option")
     .data(elections)
@@ -200,8 +219,7 @@ electionSelect.selectAll("option")
     .attr("value", d => d.race)
     .text(d => d.race)
 
-  var defaultElection = "Alderman 33rd Ward"
-  electionSelect.property("value", defaultElection);
+electionSelect.property("value", "Alderman 33rd Ward");
 
 // initialize map
 var map = new L.Map("map", {
@@ -216,17 +234,26 @@ map.addLayer(new L.StamenTileLayer("toner"), {
 var caption = L.control();
 
 caption.onAdd = function (map) {
-    this._div = L.DomUtil.create('div', 'caption');
+    this._div = L.DomUtil.create("div", "caption");
     this.update();
     return this._div;
 };
 
 caption.update = function (d) {
-    this._div.innerHTML = (d ? "<h4>Precinct " + d.properties.full_text + " Results</h4><table ><thead><tr><th class='name-cell'>Candidates</th><th class='num-cell'>Votes</th><th class='num-cell'>Pct</th></tr></thead>" + results.get(d.properties.full_text).map((d,i) => "<tr><td class='name-cell' style='background-color:" + d3.color(winnerColor(d.race)).copy({"opacity": 0.75}).toString() + "'>" + d.race + "</td><td class='num-cell'>" + d.votes + "</td><td class='num-cell'>" + d.percent + "</td><td>" + (!i ? "%" : "") + "</td></tr>").join("") + "</table>"
+    this._div.innerHTML = (d ? "<h4>Precinct " + d.properties.full_text + " Results</h4><table ><thead><tr><th class='name-cell'>Candidates</th><th class='num-cell'>Votes</th><th class='num-cell'>Pct</th></tr></thead>" + results.get(d.properties.full_text).map((d,i) => "<tr><td class='name-cell' style='background-color:" + winnerColor(d.race) + "'>" + d.race + "</td><td class='num-cell'>" + d.votes + "</td><td class='num-cell'>" + d.percent.toFixed(2) + "</td><td>" + (!i ? "%" : "") + "</td></tr>").join("") + "</table>"
         : "Hover over a Precinct");
 };
 
 caption.addTo(map);
+
+var legend = L.control({position: 'bottomleft'});
+
+legend.onAdd = function(map) {
+  var div = L.DomUtil.create("div", "legend caption");
+  div.innerHTML = "<svg class='svg-legend'></svg>"
+
+  return div;
+}
 
 // add svg overlay to map
 L.svg().addTo(map); // render all paths with SVG
@@ -234,9 +261,12 @@ L.svg().addTo(map); // render all paths with SVG
 var svg = d3.select("#map").select("svg");
 
 // define color scales
-var winnerColor = d3.scaleOrdinal(d3.schemeSet1),
-    pctColor = d3.scaleQuantile()
-    .domain([15, 85]);
+// winner colors chosen with http://tristen.ca/hcl-picker/
+var winnerColor = d3.scaleOrdinal(
+    ["#F68481","#CF9FD3","#5CC7DD","#72D793","#E6CD58"]
+  ).unknown("#76797E");
+var pctColor = d3.scaleQuantile()
+    .domain([0, 75]);
 
 // load geospatial boundaries
 Promise.all([
@@ -262,11 +292,12 @@ function draw(precincts, wards) {
   d3.selectAll(".candidate-option").remove();
   d3.selectAll("#results-table tbody tr").remove();
   d3.select("#total-results").html("");
+  d3.select("div.legend").remove();
 
-  var electionOptions = d3.select("#election-select").node(),
-      selectedElection = electionOptions.options[electionOptions.selectedIndex],
-      electionDistrict = selectedElection.getAttribute("district"), 
-      filePath = "data/election_results/" + selectedElection.getAttribute("file");
+  var year = yearSelect.node().value,
+      election = electionSelect.node().value,
+      electionDistrict = electionSelect.node().options[electionSelect.node().selectedIndex].getAttribute("district"), 
+      filePath = "data/election_results/" + year + "/" + electionSelect.node().options[electionSelect.node().selectedIndex].getAttribute("file");
 
   // load election data
   d3.tsv(filePath, parseResults).then(electionResults => {
@@ -282,17 +313,38 @@ function draw(precincts, wards) {
           filteredPrecincts = precinctFeatures.features.filter(d => d.properties.ward == electionDistrict);
     }
 
+    // calculate overall results for chosen election
+    var flat = [].concat.apply([], results.values());
+    var summary = d3.nest()
+      .key(d => d.race)
+      .rollup(v => d3.sum(v, d => d.votes))
+      .object(flat);
+
+    var sortedSummary = d3.entries(summary).sort((a, b) => d3.descending(a.value, b.value)),
+        candidates2 = sortedSummary.map(d => d.key);
+
+    // set categorical colors based on candidates
+    // only uses top 6 candidates
+    winnerColor.domain(candidates2.slice(0, 5))
+
     // populate candidate drop down
     candidateSelect.selectAll("option.candidate-option")
-      .data(candidates)
+      .data(candidates2)
     .enter().append("option")
       .attr("class", "candidate-option")
       .attr("value", d => d)
-      .text(d => d)
+      .text(d => d);
 
-    // set categorical colors based on candidates
-    // only supports up to 10 candidates
-    winnerColor.domain(candidates);
+    var totalVotes = d3.sum(d3.values(summary));
+
+    // update results table + caption
+    d3.select("#results-table tbody").selectAll("tr")
+        .data(sortedSummary)
+      .enter().append("tr")
+        .html((d, i) => "<td class='name-cell" + (!i ? " winner'" : "'") + " style='background-color:" + winnerColor(d.key) + "'>" + d.key + "<td class='num-cell'>" + d.value.toLocaleString() + "</td><td class='num-cell'>" + (d.value / totalVotes * 100).toFixed(2) + "</td><td>" + (!i ? "%" : "") + "</td>")
+
+    d3.select("#total-results")
+        .html(totalVotes.toLocaleString() + " votes<br />" + filteredPrecincts.length.toLocaleString() + " of " + filteredPrecincts.length.toLocaleString() + " precincts reporting")
 
     // render precinct choropleth
     var precinctsPath = svg.selectAll("path")
@@ -318,23 +370,6 @@ function draw(precincts, wards) {
     var centroid = d3.geoCentroid({type: "FeatureCollection", "features": filteredPrecincts});
 
     map.flyTo(new L.LatLng(centroid[1], centroid[0]), electionDistrict == "city" ? 11 : 12);
-
-    // calculate overall results for chosen election
-    var flat = [].concat.apply([], results.values());
-    var summary = d3.nest()
-      .key(d => d.race)
-      .rollup(v => d3.sum(v, d => d.votes))
-      .object(flat);
-
-    var totalVotes = d3.sum(d3.values(summary));
-
-    d3.select("#results-table tbody").selectAll("tr")
-        .data(d3.entries(summary).sort((a, b) => d3.descending(a.value, b.value)))
-      .enter().append("tr")
-        .html((d, i) => "<td class='name-cell" + (!i ? " winner'" : "'") + " style='background-color:" + d3.color(winnerColor(d.key)).copy({"opacity": 0.75}).toString() + "'>" + d.key + "<td class='num-cell'>" + d.value.toLocaleString() + "</td><td class='num-cell'>" + (d.value / totalVotes * 100).toFixed(2) + "</td><td>" + (!i ? "%" : "") + "</td>")
-
-    d3.select("#total-results")
-        .html(totalVotes.toLocaleString() + " votes<br />" + filteredPrecincts.length.toLocaleString() + " of " + filteredPrecincts.length.toLocaleString() + " precincts reporting")
 
     map.on("moveend", reset);
     reset();
@@ -366,16 +401,45 @@ function updateColors() {
     var c = d3.scaleLinear().domain([0,4])
         .interpolate(d3.interpolateHsl)
         .range([
-          d3.hsl(winnerColor(candidate)).brighter(1.25),
+          d3.hsl(winnerColor(candidate)).brighter(1),
           d3.hsl(winnerColor(candidate)).darker(2.5)
         ]);
-        console.log(candidate)
-    console.log(winnerColor(candidate))
     pctColor.range([...Array(5).keys()].map(x => c(x)));
+
+    updateLegend();
 
     d3.selectAll(".precinct-path")
         .attr("fill", d => pctColor(results.get(d.properties.full_text).find(x => x.race == candidate).percent))
   }
+}
+
+function updateLegend() {
+  legend.addTo(map);
+
+  var legendSvg = d3.select(".svg-legend");
+
+  var legendScale = d3.scaleLinear()
+      .domain([0,60])
+      .range([0, 26 * 4]);
+
+  legendSvg.append("g").selectAll(".rect")
+      .data([0].concat(pctColor.quantiles()))
+    .enter().append("rect")
+      .attr("x", (_, i) => 15 + i * 26)
+      .attr("y", 15)
+      .attr("height", 12)
+      .attr("width", 25)
+      .attr("fill", d => pctColor(d));
+
+  var legendAxis = d3.axisBottom(legendScale)
+      .tickSize(0)
+      .tickValues(pctColor.quantiles())
+      .tickFormat((d, i) => i == pctColor.quantiles().length - 1 ? d + "%" : d);
+
+  legendSvg.append("g")
+      .attr("class", "axis")
+      .attr("transform", "translate(15,27)")
+      .call(legendAxis);
 }
 
 // parse election result data file

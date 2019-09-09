@@ -67,7 +67,7 @@ td.num-cell, th.num-cell {
   stroke-width: 0.25px;
 }
 
-.precinct-path:hover {
+.precinct-path:hover, .precinct-path:active {
   stroke-width: 1.5px;
 }
 
@@ -98,8 +98,8 @@ td.num-cell, th.num-cell {
 }
 
 .legend {
-  width: 160px;
-  height: 50px;
+  width: 145px;
+  height: 40px;
 }
 
 .axis path, .axis line {
@@ -110,6 +110,10 @@ footer {
   margin-top: 30px;
   font-size: 10px;
   text-align: center;
+}
+
+footer span {
+  display: inline-block;
 }
 
 @media screen and (max-width: 1200px) {
@@ -123,6 +127,20 @@ footer {
   html, body {
     margin: 0 0;
     width: 100%;
+  }
+
+  #map {
+    height: 558px;
+  }
+
+  .caption {
+    overflow-y: auto;
+    max-height: 150px;
+  }
+
+  footer {
+    margin-top: 10px;
+    text-align: left;
   }
 }
 </style>
@@ -249,14 +267,15 @@ raceSelect.property("value", "Alderman 33rd Ward");
 var map = new L.Map("map", {
     center: [41.87, -87.62],
     zoom: 11,
-    zoomControl: false
+    zoomControl: false,
+    attributionControl: false, // attribution in footer
 });
 
-map.addLayer(new L.StamenTileLayer("toner"), {
-    attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.'
-});
+map.addLayer(new L.StamenTileLayer("toner"));
 
-var caption = L.control();
+var caption = L.control({
+  maxHeight: 100,
+});
 
 caption.onAdd = function (map) {
     this._div = L.DomUtil.create("div", "caption");
@@ -380,7 +399,7 @@ function draw(precincts, wards) {
     d3.select("#results-table tbody").selectAll("tr")
         .data(sortedSummary)
       .enter().append("tr")
-        .html((d, i) => "<td class='name-cell" + (!i || (i == 1 && sortedSummary[0].value / totalVotes < 0.5) ? " winner'" : "'") + " style='background-color:" + winnerColor(d.key) + "'>" + d.key + "<td class='num-cell'>" + d.value.toLocaleString() + "</td><td class='num-cell'>" + (d.value / totalVotes * 100).toFixed(2) + "</td><td>" + (!i ? "%" : "") + "</td>")
+        .html((d, i) => "<td class='name-cell" + (!i || (i == 1 && sortedSummary[0].value / totalVotes < 0.5) ? " winner'" : "'") + " style='background-color:" + winnerColor(d.key) + "'><span>" + d.key + "</span>" + (!i || (i == 1 && sortedSummary[0].value / totalVotes < 0.5) ? "<span class='win-symbol'> &#10003;</span>" : "") + "<td class='num-cell'>" + d.value.toLocaleString() + "</td><td class='num-cell'>" + (d.value / totalVotes * 100).toFixed(2) + "</td><td>" + (!i ? "%" : "") + "</td>")
 
     var districtTurnout = (d3.sum(filteredPrecincts, d => turnout.get(d.properties.full_text).ballotsCast) * 100.0 / d3.sum(filteredPrecincts, d => turnout.get(d.properties.full_text).registeredVoters)).toFixed(2);
 
@@ -394,27 +413,19 @@ function draw(precincts, wards) {
         .attr("class", "precinct-path")
         .attr("id", d => "precinct" + d.properties.full_text)
         .attr("fill", d => winnerColor(results.get(d.properties.full_text)[0].race))
-        .on("mouseover", function(d) {
-          d3.selectAll("#" + d3.select(this).attr('id'))
-              .classed("selected", true);
+        .on("mouseover touchstart", function(d) {
+          d3.select(this).raise();
           caption.update(d);      
         })
-        .on("mouseout", function(d) {
-          d3.selectAll(".selected")
-              .classed("selected", null)
-              .classed("unselected", true);
-          d3.select("#results-p").html("");
+        .on("mouseout touchend", function(d) {
           caption.update(null);
         });
 
     // center map on feature and reset home position
-    var centroid = d3.geoCentroid({type: "FeatureCollection", "features": filteredPrecincts}),
-        coordinates = new L.LatLng(centroid[1], centroid[0]),
-        zoom = raceDistrict == "city" ? 11 : 12.75;
-
-    map.flyTo(coordinates, zoom);
-    zoomHome.setHomeCoordinates(coordinates);
-    zoomHome.setHomeZoom(zoom);
+    var bbox = d3.geoBounds({type: "FeatureCollection", "features": filteredPrecincts});
+    bbox.forEach(b => b.reverse());
+    map.flyToBounds(bbox)
+    zoomHome.setHomeBounds(bbox);
 
     map.on("moveend", reset);
     reset();
@@ -461,11 +472,16 @@ function updateLegend(candidate) {
   } else {
     legend.addTo(map);
 
-    var legendSvg = d3.select(".svg-legend");
+    var legendSvg = d3.select(".svg-legend"),
+        legendWidth = 140,
+        legendHeight = 40,
+        rectWidth = 25,
+        legendMarginX = (legendWidth - 5 * rectWidth) / 2,
+        legendMarginY = legendHeight / 4;
 
     legendSvg.append("text")
-        .attr("x", 80)
-        .attr("y", 15)
+        .attr("x", legendWidth / 2)
+        .attr("y", legendMarginY)
         .attr("text-anchor", "middle")
         .style("font-size", "10px")
         .style("font-weight", "bold")
@@ -474,15 +490,15 @@ function updateLegend(candidate) {
     legendSvg.append("g").selectAll(".rect")
         .data([0].concat(pctColor.quantiles()))
       .enter().append("rect")
-        .attr("x", (_, i) => 15 + i * 25)
-        .attr("y", 20)
+        .attr("x", (_, i) => legendMarginX + i * rectWidth)
+        .attr("y", 15)
         .attr("height", 12)
-        .attr("width", 25)
+        .attr("width", rectWidth)
         .attr("fill", d => pctColor(d));
 
     var legendScale = d3.scaleLinear()
         .domain([0,60])
-        .range([0, 26 * 4]);
+        .range([0, 4 * rectWidth]);
 
     var legendAxis = d3.axisBottom(legendScale)
         .tickSize(0)
@@ -491,7 +507,7 @@ function updateLegend(candidate) {
 
     legendSvg.append("g")
         .attr("class", "axis")
-        .attr("transform", "translate(15,32)")
+        .attr("transform", "translate(" + legendMarginX + "," + (legendHeight - legendMarginY) + ")")
         .call(legendAxis);
   }
 }
@@ -538,7 +554,18 @@ function parseResults(d, i) {
 }
 </script>
 <footer>
-  <p>Source: <a href="https://github.com/spencerchan/maps">https://github.com/spencerchan/maps</a> | Data: <a href="https://chicagoelections.gov/en/election-results.html">Chicago Board of Election Commissioners</a></p> 
+  <p>
+    <span>
+      <a href="http://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> | Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> | 
+    </span>
+    <span>
+      Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.
+    </span><br>
+    <span>Source: <a href="https://github.com/spencerchan/maps">https://github.com/spencerchan/maps</a> |
+    </span>
+    <span>Election results: <a href="https://chicagoelections.gov/en/election-results.html">Chicago Board of Election Commissioners</a>
+    </span>
+  </p> 
 </footer>
 </body>
 </html>

@@ -425,7 +425,7 @@ function draw(precincts, wards) {
           d3.select(this).raise();
           caption.update(d);      
         })
-        .on("touch", function(d) {
+        .on("touchstart", function(d) {
           if (d3.select(this).classed("active")) {
             d3.select(this).classed("active", null);
             caption.update(null);

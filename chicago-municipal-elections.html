@@ -43,7 +43,7 @@ td.winner {
 
 td.name-cell, th.name-cell {
   text-align: left;
-  padding: 5px 50px 5px 5px;
+  padding: 5px 45px 5px 5px;
 }
 
 td.num-cell, th.num-cell {
@@ -345,6 +345,7 @@ function draw(precincts, wards) {
   d3.selectAll("#results-table tbody tr").remove();
   d3.select("#total-results").html("");
   d3.select("div.legend").remove();
+  caption.update(null);
 
   // build election results file name
   var electionDD = electionSelect.node(),
@@ -417,7 +418,7 @@ function draw(precincts, wards) {
           d3.select(this).raise();
           caption.update(d);      
         })
-        .on("mouseout touchend", function(d) {
+        .on("mouseout", function(d) {
           caption.update(null);
         });
 

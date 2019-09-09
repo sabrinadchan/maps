@@ -67,7 +67,7 @@ td.num-cell, th.num-cell {
   stroke-width: 0.25px;
 }
 
-.precinct-path:hover, .precinct-path:active {
+.precinct-path.active {
   stroke-width: 1.5px;
 }
 
@@ -278,14 +278,20 @@ var caption = L.control({
 });
 
 caption.onAdd = function (map) {
-    this._div = L.DomUtil.create("div", "caption");
-    this.update();
-    return this._div;
+  this._div = L.DomUtil.create("div", "caption");
+  if (!L.Browser.touch) {
+    L.DomEvent.disableClickPropagation(this._div);
+    L.DomEvent.on(this._div, "mousewheel", L.DomEvent.stopPropagation);
+  } else {
+    L.DomEvent.on(this._div, "click", L.DomEvent.stopPropagation);
+  }
+  this.update();
+  return this._div;
 };
 
 caption.update = function (d) {
-    this._div.innerHTML = (d ? "<h4>Ward " + d.properties.ward + ", Precinct " + d.properties.precinct + "</h4><table><thead><tr><th class='name-cell'>Candidates</th><th class='num-cell'>Votes</th><th class='num-cell'>Pct</th></tr></thead>" + results.get(d.properties.full_text).map((r,i) => "<tr><td class='name-cell' style='background-color:" + winnerColor(r.race) + "'>" + r.race + "</td><td class='num-cell'>" + r.votes + "</td><td class='num-cell'>" + r.percent.toFixed(2) + "</td><td>" + (!i ? "%" : "") + "</td></tr>").join("") + "</table><span>(" + turnout.get(d.properties.full_text).turnoutPct + "% turnout)</span>"
-        : "Hover over a precinct");
+  this._div.innerHTML = (d ? "<h4>Ward " + d.properties.ward + ", Precinct " + d.properties.precinct + "</h4><table><thead><tr><th class='name-cell'>Candidates</th><th class='num-cell'>Votes</th><th class='num-cell'>Pct</th></tr></thead>" + results.get(d.properties.full_text).map((r,i) => "<tr><td class='name-cell' style='background-color:" + winnerColor(r.race) + "'>" + r.race + "</td><td class='num-cell'>" + r.votes + "</td><td class='num-cell'>" + r.percent.toFixed(2) + "</td><td>" + (!i ? "%" : "") + "</td></tr>").join("") + "</table><span>(" + turnout.get(d.properties.full_text).turnoutPct + "% turnout)</span>"
+      : "Hover over a precinct");
 };
 
 caption.addTo(map);
@@ -414,11 +420,24 @@ function draw(precincts, wards) {
         .attr("class", "precinct-path")
         .attr("id", d => "precinct" + d.properties.full_text)
         .attr("fill", d => winnerColor(results.get(d.properties.full_text)[0].race))
-        .on("mouseover touchstart", function(d) {
+        .on("mouseover", function(d) {
+          d3.select(this).classed("active", true);
           d3.select(this).raise();
           caption.update(d);      
         })
+        .on("touch", function(d) {
+          if (d3.select(this).classed("active")) {
+            d3.select(this).classed("active", null);
+            caption.update(null);
+          } else {
+            d3.select(".precinct-path.active").classed("active", null);
+            d3.select(this).classed("active", true);
+            d3.select(this).raise();
+            caption.update(d);
+          }
+        })
         .on("mouseout", function(d) {
+          d3.select(".precinct-path.active").classed("active", null);
           caption.update(null);
         });
 
